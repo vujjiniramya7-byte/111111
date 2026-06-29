@@ -24,7 +24,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from groq import Groq
-client = genai.Client(api_key=GEMINI_API_KEY)
+
 try:
     from pypdf import PdfReader
     HAS_PDF = True
