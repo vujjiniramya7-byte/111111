@@ -18,7 +18,7 @@ from typing import Optional
 
 import faiss
 import numpy as np
-from google import genai
+import google.generativeai as genai
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -60,10 +60,9 @@ TOP_K          = 4
 EMBED_BATCH    = 20          # Gemini free tier: stay well under rate limits
 MAX_FILE_MB    = 5
 MAX_TOTAL_DOCS = 20
-EMBED_MODEL = "models/embedding-001"
-EMBED_DIM = 768
+EMBED_MODEL    = "models/text-embedding-004"   # 768-dim, free, 1500 req/day
 LLM_MODEL      = "llama-3.3-70b-versatile"
-
+EMBED_DIM      = 768
 
 UPLOADS_DIR.mkdir(exist_ok=True)
 VS_DIR.mkdir(exist_ok=True)
@@ -99,28 +98,35 @@ def get_groq():
 
 
 def embed_texts(texts: list[str]) -> np.ndarray:
+    """Embed a list of strings using Gemini API, in batches."""
     if not GEMINI_API_KEY:
         raise HTTPException(500, "GEMINI_API_KEY not set")
-
-    vectors = []
-
-    for text in texts:
+    all_vecs = []
+    for i in range(0, len(texts), EMBED_BATCH):
+        batch = texts[i : i + EMBED_BATCH]
         result = genai.embed_content(
             model=EMBED_MODEL,
-            content=text,
+            content=batch,
             task_type="retrieval_document",
         )
-        vectors.append(result["embedding"])
+        all_vecs.extend(result["embedding"])
+        # Small pause to respect free-tier rate limits (1500 req/day, ~1/min burst)
+        if i + EMBED_BATCH < len(texts):
+            time.sleep(0.1)
+    return np.array(all_vecs, dtype="float32")
 
-    return np.array(vectors, dtype="float32")
 
 def embed_query(text: str) -> np.ndarray:
+    """Embed a single query string."""
+    if not GEMINI_API_KEY:
+        raise HTTPException(500, "GEMINI_API_KEY not set")
     result = genai.embed_content(
         model=EMBED_MODEL,
         content=text,
         task_type="retrieval_query",
     )
     return np.array([result["embedding"]], dtype="float32")
+
 
 _index: Optional[faiss.IndexFlatL2] = None
 _chunks: list = []
@@ -212,21 +218,16 @@ def index_text(text: str, source: str, doc_id: str):
 async def seed_knowledge():
     load_vector_store()
     docs = load_doc_registry()
-
     if not any(d.get("doc_id") == "nnrg_builtin" for d in docs) and KNOWLEDGE_FILE.exists():
-        try:
-            text = KNOWLEDGE_FILE.read_text()
-            index_text(text, "NNRG Official Documentation", "nnrg_builtin")
-            docs.append({
-                "doc_id": "nnrg_builtin",
-                "filename": "NNRG_College_Documentation.txt",
-                "source": "Built-in",
-                "size": len(text),
-            })
-            save_doc_registry(docs)
-            print("Knowledge base indexed successfully.")
-        except Exception as e:
-            print(f"WARNING: Failed to index built-in knowledge: {e}")
+        text = KNOWLEDGE_FILE.read_text()
+        index_text(text, "NNRG Official Documentation", "nnrg_builtin")
+        docs.append({
+            "doc_id": "nnrg_builtin",
+            "filename": "NNRG_College_Documentation.txt",
+            "source": "Built-in",
+            "size": len(text),
+        })
+        save_doc_registry(docs)
 
 # ── retrieval ─────────────────────────────────────────────────────────────────
 
