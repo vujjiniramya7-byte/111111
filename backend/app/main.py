@@ -63,7 +63,7 @@ MAX_TOTAL_DOCS = 20
 EMBED_MODEL = "models/embedding-001"
 EMBED_DIM = 768
 LLM_MODEL      = "llama-3.3-70b-versatile"
-EMBED_DIM      = 768
+
 
 UPLOADS_DIR.mkdir(exist_ok=True)
 VS_DIR.mkdir(exist_ok=True)
@@ -212,16 +212,21 @@ def index_text(text: str, source: str, doc_id: str):
 async def seed_knowledge():
     load_vector_store()
     docs = load_doc_registry()
+
     if not any(d.get("doc_id") == "nnrg_builtin" for d in docs) and KNOWLEDGE_FILE.exists():
-        text = KNOWLEDGE_FILE.read_text()
-        index_text(text, "NNRG Official Documentation", "nnrg_builtin")
-        docs.append({
-            "doc_id": "nnrg_builtin",
-            "filename": "NNRG_College_Documentation.txt",
-            "source": "Built-in",
-            "size": len(text),
-        })
-        save_doc_registry(docs)
+        try:
+            text = KNOWLEDGE_FILE.read_text()
+            index_text(text, "NNRG Official Documentation", "nnrg_builtin")
+            docs.append({
+                "doc_id": "nnrg_builtin",
+                "filename": "NNRG_College_Documentation.txt",
+                "source": "Built-in",
+                "size": len(text),
+            })
+            save_doc_registry(docs)
+            print("Knowledge base indexed successfully.")
+        except Exception as e:
+            print(f"WARNING: Failed to index built-in knowledge: {e}")
 
 # ── retrieval ─────────────────────────────────────────────────────────────────
 
