@@ -31,4 +31,4 @@ services:
       # Set this to your backend's Render URL after first backend deploy
       # e.g. https://nnrg-backend.onrender.com
       - key: BACKEND_URL
-        value: https://nnrg-backend.onrender.com
+        value:https://nnrg-backend-c9nh.onrender.com
