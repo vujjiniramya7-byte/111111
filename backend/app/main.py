@@ -18,13 +18,13 @@ from typing import Optional
 
 import faiss
 import numpy as np
-import google.generativeai as genai
+from google import genai
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from groq import Groq
-
+client = genai.Client(api_key=GEMINI_API_KEY)
 try:
     from pypdf import PdfReader
     HAS_PDF = True
